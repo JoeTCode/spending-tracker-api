@@ -1,0 +1,28 @@
+# Ignore virtual environment
+.venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment files
+.env
+*.env
+
+# OS / editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Transaction data
+data/
+
+# Model weights
+model-weights/
