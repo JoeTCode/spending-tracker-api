@@ -1,0 +1,9 @@
+BARCLAYS_CSV_21_24 = 'data/barclays/21-24/transactions.csv'
+BARCLAYS_CSV_24_25 = 'data/barclays/24-25/transactions.csv'
+RULES_PATH = 'data/rules.csv'
+CASE_SENSITIVE_RULES_PATH = 'data/case-sensitive-rules.csv'
+CATEGORIES = ["Groceries", "Housing & Bills", "Finance & Fees", "Transport", "Income", "Shopping", "Eating Out", "Entertainment", "Health & Fitness", "Other / Misc"]
+SAVE_LOGREG_PATH = 'model_weights/logreg'
+BARCLAYS_CAT_COL = 'Category'
+BARCLAYS_DESC_COL = 'Memo'
+SAVE_RANDOM_FOREST_PATH = 'model_weights/random_forest'

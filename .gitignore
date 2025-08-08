@@ -25,4 +25,8 @@ __pycache__/
 data/
 
 # Model weights
-model-weights/
+classifiers/model_weights/
+
+classifiers/predictions/
+
+api/model_weight/
