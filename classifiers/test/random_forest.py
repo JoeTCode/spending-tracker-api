@@ -6,11 +6,13 @@ import joblib
 from utils.barclays.format_csv import format_csv
 import pandas as pd
 from utils.model_io import save_model, get_latest_model
-from config import BARCLAYS_CSV_21_24, BARCLAYS_CSV_24_25, SAVE_RANDOM_FOREST_PATH
+from config import BARCLAYS_CSV_21_24, BARCLAYS_CSV_24_25, BARCLAYS_CAT_COL, BARCLAYS_DESC_COL, BARCLAYS_PRICE_COL, RULES_PATH, CASE_SENSITIVE_RULES_PATH, CATEGORIES, SAVE_LOGREG_PATH, SAVE_RANDOM_FOREST_PATH
 import time
 import os
 from utils.file_io import save_predictions
 from utils.evaluate import accuracy
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 script_dir = os.path.dirname(__file__)  # path of current script
 
@@ -29,12 +31,31 @@ RF_PARAMS = {
 SAVE_PREDICTIONS_MODEL_DIR = 'random_forest'
 
 def train(Y, data, save=False, *, random_state, **kwargs):
+    X = data
 
     # Load BERT model
     bert = SentenceTransformer("all-MiniLM-L6-v2")
 
-    # Convert text descriptions into embeddings
-    X = bert.encode(data)
+    if isinstance(data, pd.Series):
+        # Convert text descriptions into embeddings
+        X = bert.encode(data)
+
+    elif isinstance(data, pd.DataFrame):
+        if BARCLAYS_DESC_COL in data.columns and BARCLAYS_PRICE_COL in data.columns:
+            # Convert text descriptions into embeddings
+            X = bert.encode(data[BARCLAYS_DESC_COL])
+            
+            # Reshape prices into a 2d array with shape: (n_samples, 1)
+            prices = np.array(data[BARCLAYS_PRICE_COL]).reshape((-1, 1))
+            prices_scaled = StandardScaler().fit_transform(prices)
+
+            # Combine both embedded text and scaled amounts into shape: (n_samples, X_dim + 1)
+            X = np.hstack([X, prices_scaled])
+        else:
+            raise Exception(f"Unexpected column names: {data.columns}")
+    
+    else:
+        raise TypeError(f"Provided {type(X)}. Only arguments of type pd.Series or pd.Dataframe are allowed.")
 
     # Split and train logistic regression
     X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=random_state)
@@ -47,18 +68,39 @@ def train(Y, data, save=False, *, random_state, **kwargs):
     print(classification_report(y_test, y_pred))
 
     if save:
-        # Save classifier and BERT model separately
+        # Save classifier and return saved model path
         return save_model(clf, os.path.join(script_dir, SAVE_RANDOM_FOREST_PATH))
     
-    return clf
+    else: return clf
 
 def predict(data, clf=None, max_depth=2, random_state=42):
-     # Load BERT model
+    X = data
+    
+    # Load BERT model
     bert = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    if isinstance(data, pd.Series):
+        # Convert text descriptions into embeddings
+        X = bert.encode(data)
 
-    # Convert text descriptions into embeddings
-    X = bert.encode(data)
+    elif isinstance(data, pd.DataFrame):
+        if BARCLAYS_DESC_COL in data.columns and BARCLAYS_PRICE_COL in data.columns:
+            # Convert text descriptions into embeddings
+            X = bert.encode(data[BARCLAYS_DESC_COL])
+            
+            # Reshape prices into a 2d array with shape: (n_samples, 1)
+            prices = np.array(data[BARCLAYS_PRICE_COL]).reshape((-1, 1))
+            prices_scaled = StandardScaler().fit_transform(prices)
 
+            # Combine both embedded text and scaled amounts into shape: (n_samples, X_dim + 1)
+            X = np.hstack([X, prices_scaled])
+        
+        else:
+            raise Exception(f"Unexpected column names: {data.columns}")
+            
+    else:
+        raise TypeError(f"Provided {type(X)}. Only arguments of type pd.Series or pd.Dataframe are allowed.")
+    
     if not clf:
         model_path = os.path.join(script_dir, SAVE_RANDOM_FOREST_PATH)
         clf = joblib.load(get_latest_model(model_path))
@@ -72,7 +114,7 @@ clf = None
 if TRAIN:
     csv_21_24 = pd.read_csv(BARCLAYS_CSV_21_24)
     labels = csv_21_24['Category']
-    data = csv_21_24['Memo']
+    data = csv_21_24[['Amount', 'Memo']]
     
     if TRAIN_SAVE:
         filepath = train(labels, data, TRAIN_SAVE, random_state=RANDOM_STATE, **RF_PARAMS)
@@ -85,11 +127,10 @@ if PREDICT:
     start = time.time()
     uncategorised_df = format_csv(BARCLAYS_CSV_24_25).drop(columns=['Category'])
     predictions = None
-
+    
     if clf:
-        predictions = predict(uncategorised_df['Memo'], clf)
-    else: predictions = predict(uncategorised_df['Memo'])
-
+        predictions = predict(uncategorised_df[['Amount', 'Memo']], clf)
+    else: predictions = predict(uncategorised_df[['Amount', 'Memo']])
     uncategorised_df['Category'] = predictions
 
     if PREDICT_SAVE:
@@ -99,4 +140,4 @@ if PREDICT:
         print(uncategorised_df.head())
 
     print(f"Accuracy score: {accuracy(uncategorised_df, format_csv(BARCLAYS_CSV_24_25))*100:.2f}%")
-    print(f"Random Forest prediction completed in: {time.time() - start:.2f} seconds on {len(predictions)} transaction(s).")
+    print(f"Logistic regression prediction completed in: {time.time() - start:.2f} seconds on {len(predictions)} transaction(s).")

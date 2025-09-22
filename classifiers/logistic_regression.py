@@ -6,7 +6,7 @@ import joblib
 from utils.barclays.format_csv import format_csv
 import pandas as pd
 from utils.model_io import save_model, get_latest_model
-from config import BARCLAYS_CSV_21_24, BARCLAYS_CSV_24_25, BARCLAYS_CAT_COL, BARCLAYS_DESC_COL, RULES_PATH, CASE_SENSITIVE_RULES_PATH, CATEGORIES, SAVE_LOGREG_PATH
+from config import BARCLAYS_CSV_21_24, BARCLAYS_CSV_24_25, SAVE_LOGREG_PATH
 import time
 import os
 from utils.file_io import save_predictions
@@ -37,23 +37,28 @@ def train(Y, data, save=False, random_state=RANDOM_STATE):
     print(classification_report(y_test, y_pred))
 
     if save:
-        # Save classifier and BERT model separately
+        # Save classifier
         return save_model(clf, os.path.join(script_dir, SAVE_LOGREG_PATH))
 
+    return clf
 
-def predict(data):
+def predict(data, clf=None):
      # Load BERT model
     bert = SentenceTransformer("all-MiniLM-L6-v2")
 
     # Convert text descriptions into embeddings
     X = bert.encode(data)
 
-    clf = joblib.load(get_latest_model(os.path.join(script_dir, SAVE_LOGREG_PATH)))
     if not clf:
-        clf = LogisticRegression(max_iter=1000)
-
+        model_path = os.path.join(script_dir, SAVE_LOGREG_PATH)
+        clf = joblib.load(get_latest_model(model_path))
+        if not clf:
+            print(f"Could not find saved model at: {model_path}. Instantiating new classifier.")
+            clf = LogisticRegression(max_iter=1000)
+    
     return clf.predict(X)
 
+clf = None
 if TRAIN:
     csv_21_24 = pd.read_csv(BARCLAYS_CSV_21_24)
     labels = csv_21_24['Category']
@@ -62,13 +67,19 @@ if TRAIN:
     if TRAIN_SAVE:
         filepath = train(labels, data, TRAIN_SAVE)
         print(filepath)
-    else: train(labels, data, TRAIN_SAVE)
+    else:
+        clf = train(labels, data, TRAIN_SAVE)
 
     
 if PREDICT:
     start = time.time()
     uncategorised_df = format_csv(BARCLAYS_CSV_24_25).drop(columns=['Category'])
-    predictions = predict(uncategorised_df['Memo'])
+    
+    if clf:
+        predictions = predict(uncategorised_df['Memo'], clf)
+    else:
+        predictions = predict(uncategorised_df['Memo'])
+
     uncategorised_df['Category'] = predictions
 
     if PREDICT_SAVE:
