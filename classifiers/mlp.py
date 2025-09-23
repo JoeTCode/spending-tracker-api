@@ -93,9 +93,8 @@ def inspect_weights(weights):
 # print(f"Averaged MLP accuracy: {accuracy(predicted_df, test_df) * 100:.2f}%")
 
 model = train(create_model(), train_df['Category'], train_df['Memo'], 15)
-model.save("mlp_model_1")
+model.save("model_1.h5")
 predictions, probabilities = predict(model, test_df['Memo'], test_df)
-print(predictions, probabilities)
 predicted_df = test_df.assign(Category=predictions)
 
 print(f"MLP accuracy: {accuracy(predicted_df, test_df) * 100:.2f}%")

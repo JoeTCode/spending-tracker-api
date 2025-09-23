@@ -14,7 +14,7 @@ from utils.evaluate import accuracy, category_distribution
 
 script_dir = os.path.dirname(__file__)  # folder where current script lives
 
-TRAIN, TRAIN_SAVE = True, False
+TRAIN, TRAIN_SAVE = False, False
 PREDICT, PREDICT_SAVE = True, False
 RANDOM_STATE = 42
 SAVE_PREDICTIONS_MODEL_DIR = 'svm'
